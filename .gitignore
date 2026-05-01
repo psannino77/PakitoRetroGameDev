@@ -1,0 +1,27 @@
+# Build artifacts
+build/
+*.prg
+*.d64
+*.t64
+*.crt
+*.o
+*.lst
+*.sym
+*.vs
+*.bin.tmp
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Python (for tools/)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+*.log
