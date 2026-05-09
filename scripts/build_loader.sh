@@ -56,4 +56,19 @@ rm -f "$ROOT/build/ocean_loader.prg"
 64tass -a -I "$ROOT" -o "$OUT_PRG" \
     "$ROOT/src/loader/ocean_style_loader.asm"
 
-echo "[loader] built: build/OCNLOAD.PRG ($(wc -c <"$OUT_PRG") bytes)"
+echo "[loader] built: $OUT_PRG ($(wc -c <"$OUT_PRG") bytes)"
+
+# --- Package into a .D64 disk image --------------------------------------
+# A .D64 ensures drag&drop / Smart Attach in VICE always finds the file
+# (no fsdevice needed) and lets the PRG run on real hardware (1541, SD2IEC,
+# 1541 Ultimate, ...). The first program on a disk autostarts via
+# LOAD"*",8,1 + RUN, which is what VICE's autostart and SD2IEC FB do.
+OUT_D64="$ROOT/build/OCNLOAD.D64"
+if command -v c1541 >/dev/null 2>&1; then
+    rm -f "$OUT_D64"
+    c1541 -format "pakito loader,01" d64 "$OUT_D64" >/dev/null
+    c1541 -attach "$OUT_D64" -write "$OUT_PRG" "ocnload" >/dev/null
+    echo "[loader] packaged: $OUT_D64"
+else
+    echo "[loader] c1541 not found - skipping .D64 packaging" >&2
+fi
