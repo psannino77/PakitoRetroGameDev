@@ -1,0 +1,52 @@
+# ---------------------------------------------------------------------------
+# Pakito Retro Game Dev - Loader strip configuration.
+#
+# This file is consumed by scripts/tools/loader_texts_compile.py at build
+# time. It produces:
+#   build/loader/loader_texts.bin   (entries blob, 40 screen-codes per row)
+#   build/loader/loader_texts.inc   (constants for the 64tass loader)
+#
+# Format
+# ------
+#   * Lines starting with `#` and empty lines are ignored.
+#   * Lines starting with `!` are KEY=VALUE configuration directives.
+#   * Every other line is a "title" entry shown on the left side of the
+#     mid-screen strip. The strip is composed automatically as:
+#         "<TITLE> <dots> <RIGHT>"   (exactly 40 characters)
+#
+# Configuration keys (all optional, defaults shown)
+# -------------------------------------------------
+#   !RIGHT=NOW LOADING        Right-side fixed label.
+#   !CYCLE_FRAMES=200         Frames each entry stays on screen (PAL=50/s).
+#   !INITIAL_SILENCE=100      Frames of pure-black screen before the strip
+#                             appears (music keeps playing).
+#   !TOTAL_FRAMES=9000        Total loader duration; then game_stub runs.
+#   !DOT_CHAR=.               Single character used to fill the gap.
+#
+# Notes
+# -----
+#   * Only ASCII A-Z, 0-9, space and the punctuation `. , : ; - + * / ! ?`
+#     are guaranteed. Lower case is auto upper-cased.
+#   * Each title is truncated to fit; if title+right+gap > 40 chars the
+#     compiler will warn and trim the title.
+# ---------------------------------------------------------------------------
+
+!RIGHT=NOW LOADING
+!CYCLE_FRAMES=200
+!INITIAL_SILENCE=100
+!TOTAL_FRAMES=9000
+!DOT_CHAR=.
+
+# Ocean-style border bands. Two C64 colors that alternate every BAND_HEIGHT
+# raster lines on top and bottom regions of the screen. The strip stays on
+# pure black background. Defaults: cyan (3) / blue (6), 4 lines per band
+# (Robocop Demo style).
+!BAND_COLOR_A=3
+!BAND_COLOR_B=6
+!BAND_HEIGHT=4
+
+OCEAN
+PAKITO RETRO GAME DEV
+CODE: PASQUALE SANNINO
+MUSIC: ALDO CHIUMMO
+GREETINGS TO THE SCENE

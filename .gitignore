@@ -25,3 +25,19 @@ venv/
 
 # Logs
 *.log
+
+# Project-local VICE config sandbox (isolated XDG_CONFIG_HOME).
+scripts/vice/.xdg/
+
+# Local copies of (potentially copyrighted) third-party music files.
+# Obtain SIDs from HVSC (https://hvsc.c64.org/) and place them here locally.
+assets/music/
+*.sid
+
+# Local third-party reference dumps (e.g. Ocean Robocop demo tape/RAM dump).
+assets/loader/ocean robocop demo/
+
+# Throwaway local diagnostic scripts.
+/capture_screenshots.py
+/diag_loader.py
+/monitor_script_1.py

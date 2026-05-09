@@ -1,0 +1,40 @@
+# Pakito Retro Game Dev - Project-local VICE configuration.
+# Loaded via `-config` so it does NOT touch your global ~/.config/vice/vicerc.
+#
+# Keep this file minimal: only the resources needed for clean autostart of
+# the loader PRG.  Edit as needed for the project.
+
+[C64SC]
+ConfirmOnExit=0
+SaveResourcesOnExit=0
+
+# --- Autostart / drive emulation ---
+# Disable true drive emulation so the kernal LOAD trap is used (fast, robust
+# autostart of small PRGs without needing a real .d64).
+DriveTrueEmulation=0
+VirtualDevice8=1
+FileSystemDevice8=1
+FSDevice8ConvertP00=1
+FSDeviceLongNames=0
+# 0 = inject via virtual filesystem (no disk image needed).
+AutostartPrgMode=0
+AutostartDelay=0
+AutostartDelayRandom=0
+AutostartWarp=1
+AutostartHandleTrueDriveEmulation=1
+AutostartTapeImage=
+
+# --- Video / sound sane defaults ---
+VICIIFilter=0
+SidEngine=1
+SidModel=1
+
+# --- Window ---
+Window0Width=800
+Window0Height=600
+
+# --- Diagnostics ---
+# 0 = ask the user via dialog when the CPU JAMs (so we actually SEE the JAM
+# instead of a silent reset loop). Switch to 2 (reset) once the loader is
+# stable.
+JAMAction=0
