@@ -115,6 +115,18 @@ def compose(title: str, right: str, dot: str) -> bytes:
     return to_screen_codes(line)
 
 
+def center_bytes(text: str) -> bytes:
+    return to_screen_codes(text[:INNER_W])
+
+
+def compose_centered(text: str) -> bytes:
+    trimmed = text[:INNER_W]
+    left = (INNER_W - len(trimmed)) // 2
+    right = INNER_W - len(trimmed) - left
+    line = " " * SIDE_PAD + " " * left + trimmed + " " * right + " " * SIDE_PAD
+    return to_screen_codes(line)
+
+
 def main() -> None:
     if len(sys.argv) != 3:
         die("usage: loader_texts_compile.py <input.txt> <output_dir>")
@@ -166,10 +178,18 @@ def main() -> None:
     bin_path = os.path.join(outdir, "loader_texts.bin")
     inc_path = os.path.join(outdir, "loader_texts.inc")
     scroll_path = os.path.join(outdir, "loader_scroll.bin")
+    first_center_path = os.path.join(outdir, "loader_first_center.bin")
+    right_center_path = os.path.join(outdir, "loader_right_center.bin")
     with open(bin_path, "wb") as f:
         f.write(blob)
     with open(scroll_path, "wb") as f:
         f.write(scroll_blob)
+    first_center = compose_centered(entries[0])
+    right_center = compose_centered(cfg["RIGHT"])
+    with open(first_center_path, "wb") as f:
+        f.write(first_center)
+    with open(right_center_path, "wb") as f:
+        f.write(right_center)
 
     rel_bin = os.path.relpath(bin_path, start=os.path.dirname(inc_path)) \
         if os.path.dirname(inc_path) else bin_path
@@ -187,6 +207,8 @@ def main() -> None:
             f"LOADER_BAND_COLOR_B     = {col_b}\n"
             f"LOADER_BAND_HEIGHT      = {bh}\n"
             f"LOADER_SCROLL_LEN       = {len(scroll_blob)}\n"
+            f"LOADER_FIRST_CENTER_LEN = {len(first_center)}\n"
+            f"LOADER_RIGHT_CENTER_LEN = {len(right_center)}\n"
         )
 
     print(f"loader_texts_compile: {len(entries)} entries, "

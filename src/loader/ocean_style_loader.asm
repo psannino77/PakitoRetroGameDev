@@ -63,7 +63,7 @@ ZP_FRAME_LO     = $05
 ZP_FRAME_HI     = $06
 ZP_CYC_LO       = $07
 ZP_CYC_HI       = $08
-ZP_ENTRY        = $09                   ; current entry index (0..N-1)
+ZP_ENTRY        = $09                   ; intro phase: 0=NOW LOADING, 1=title
 ZP_STRIP_ON     = $0A                   ; non-zero once strip is visible
 ZP_PROGRESS     = $0B                   ; advisory progress (0..100)
 ZP_SCROLL_ON    = $0F                   ; non-zero once scroll mode active
@@ -239,6 +239,29 @@ ss_pc:  dex
         sta COLRAM + STRIP_ROW*40, x
         sta COLRAM + STRIP_ROW*40 + (40-STRIP_PAD), x
         bne ss_pc
+        rts
+
+show_centered_now_loading:
+        lda #<loader_right_center
+        sta ZP_SRC
+        lda #>loader_right_center
+        sta ZP_SRC+1
+        jmp show_buffer_row
+
+show_centered_first_title:
+        lda #<loader_first_center
+        sta ZP_SRC
+        lda #>loader_first_center
+        sta ZP_SRC+1
+        jmp show_buffer_row
+
+show_buffer_row:
+        ldy #39
+sbr_cp:
+        lda (ZP_SRC),y
+        sta SCREEN + STRIP_ROW*40, y
+        dey
+        bpl sbr_cp
         rts
 
 ; show_entry: copy entry ZP_ENTRY (0..N-1) into the strip text row.
@@ -533,7 +556,7 @@ strip_chk_lo:
         jmp strip_skip
 strip_show:
         jsr show_strip
-        jsr show_entry
+        jsr show_centered_now_loading
         lda #1
         sta ZP_STRIP_ON
         jmp strip_skip
@@ -551,7 +574,19 @@ strip_cycle:
         beq strip_cyc_end
         jmp strip_skip
 strip_cyc_end:
-        ; Entry 0 cycle elapsed: switch into soft-scroll mode.
+        ; First cycle: replace centered NOW LOADING with the first title.
+        lda ZP_ENTRY
+        bne strip_start_scroll
+        jsr show_centered_first_title
+        lda #1
+        sta ZP_ENTRY
+        lda #<LOADER_CYCLE_FRAMES
+        sta ZP_CYC_LO
+        lda #>LOADER_CYCLE_FRAMES
+        sta ZP_CYC_HI
+        jmp strip_skip
+strip_start_scroll:
+        ; Second cycle elapsed: switch into soft-scroll mode.
         jsr scroll_init
 strip_skip:
 
@@ -755,6 +790,12 @@ band_lengths:
         .byte 4,1,3,7,2,5,1,4
         .byte 6,3,2,5,1,7,3,4
         .byte 2,1,5,3,6,2,4,1
+
+loader_first_center:
+        .binary "build/loader/loader_first_center.bin"
+
+loader_right_center:
+        .binary "build/loader/loader_right_center.bin"
 
 ; Strip text table: LOADER_ENTRIES_COUNT * 40 screen-codes.
 loader_entries:
