@@ -789,6 +789,7 @@ scroll_init:
         lda #7
         sta ZP_FX
         lda #0
+        sta final_scroll_hold
         sta final_hold
         lda #<scroll_text
         sta ZP_SRCP
@@ -802,9 +803,18 @@ scroll_init:
 ;   * Decrement fine X (0..7); when it wraps, shift strip row left by one
 ;     character and load the next char from scroll_text into the rightmost
 ;     visible column. When the source reaches the end of the scroll text,
-;     show the final centered prompt and hold for `final_hold` frames
-;     before arming the splash reveal.
+;     wait a bit, then show the final centered prompt and hold it a little
+;     longer before arming the splash reveal.
 scroll_step:
+        lda final_scroll_hold
+        beq ss_no_prehold
+        dec final_scroll_hold
+        bne sst_done
+        jsr show_centered_final_title
+        lda #150
+        sta final_hold
+        rts
+ss_no_prehold:
         lda final_hold
         beq ss_no_hold
         dec final_hold
@@ -850,15 +860,15 @@ ss_chk_end:
         sbc #>(scroll_text + LOADER_SCROLL_LEN)
         bcc sst_done
         ; End of scroll text reached: stop scrolling, lock fine-X to 0,
-        ; show the final centered prompt, then hold ~3 s before splash.
+        ; wait a beat, then show the final centered prompt and hold it.
         lda #0
         sta ZP_FX
-        jsr show_centered_final_title
-        lda #150
-        sta final_hold
+        lda #50
+        sta final_scroll_hold
 sst_done:
         rts
 
+final_scroll_hold .byte 0
 final_hold      .byte 0
 
 done_flag       .byte 0
@@ -1123,43 +1133,48 @@ CIA1_PRA        = $DC00      ; joystick port 2 + keyboard rows
 CIA1_PRB        = $DC01      ; keyboard columns
 
 skip_prompt_flag .byte 0
+game_hold_lo    .byte 0
+game_hold_hi    .byte 0
+game_frame      .byte 0
 
 game_stub:
         lda done_flag
-        bne gs_show_prompt
+        bne gs_wait_game
         lda #1
         sta skip_prompt_flag
+        jmp gs_go
 
-gs_show_prompt:
-        lda ZP_SPLASH_ON
-        beq gs_prompt_ready
-        jsr set_text_mode
-        jsr clear_screen
-        jsr show_strip
-        lda #0
-        sta ZP_SPLASH_ON
-gs_prompt_ready:
-        lda #0
-        sta ZP_INPUT_ARMED
-        lda skip_prompt_flag
-        bne gs_go
-
-        jsr show_centered_final_title
-
-gs_wait:
-        jsr poll_any_input
-        beq gs_arm_input
-        lda ZP_INPUT_ARMED
-        bne gs_go
-        jmp gs_wait
-gs_arm_input:
-        lda #1
-        sta ZP_INPUT_ARMED
-        jmp gs_wait
+gs_wait_game:
+        lda game_hold_lo
+        ora game_hold_hi
+        bne gs_hold_tick
+        lda #<500
+        sta game_hold_lo
+        lda #>500
+        sta game_hold_hi
+gs_hold_tick:
+        lda ZP_FRAME_LO
+        sta game_frame
+gs_wait_frame:
+        lda ZP_FRAME_LO
+        cmp game_frame
+        beq gs_wait_frame
+        sta game_frame
+        lda game_hold_lo
+        bne gs_dec_lo
+        dec game_hold_hi
+gs_dec_lo:
+        dec game_hold_lo
+        lda game_hold_lo
+        ora game_hold_hi
+        bne gs_wait_game
+        jmp gs_go
 
 gs_go:
         lda #0
         sta skip_prompt_flag
+        sta game_hold_lo
+        sta game_hold_hi
         sta ZP_SPLASH_ON
         sta ZP_SCROLL_ON
         sei
@@ -1168,27 +1183,10 @@ gs_go:
         jsr uninstall_nmi
         jsr set_text_mode
         cli
-        ; --- Final placeholder: clear screen and show "GAME" ---
-        lda #$00
-        sta VIC_BORDER
-        sta VIC_BG
-        jsr clear_screen
-        ldx #0
-gs_p:   lda txt_game,x
-        beq gs_d
-        sta SCREEN + STRIP_ROW*40 + 18, x
-        lda #$01
-        sta COLRAM + STRIP_ROW*40 + 18, x
-        inx
-        bne gs_p
-gs_d:
-gs_h:   jmp gs_h
-
 ; ===========================================================================
 ; Data
 ; ===========================================================================
 
-txt_game:     .byte 7,1,13,5,0          ; "GAME"
 ; "PRESS FIRE OR SPACE" in screen codes (uppercase charset).
 txt_press:    .byte 16,18,5,19,5,32,6,9,18,5,32,15,18,32,19,16,1,3,5,0
 

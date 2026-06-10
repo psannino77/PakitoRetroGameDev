@@ -10,13 +10,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image
+
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = ROOT / "assets" / "splash" / "Toki Splash"
 LOGOS = ROOT / "assets" / "logos" / "bin"
 SCREEN_W = 40
 SCREEN_H = 25
-DAVE_BG_COLOR = 14
+ 
+DAVE_PNG = ROOT / "assets" / "logos" / "Dave's Retro Forge_mini.png"
+DAVE_X = 1
+DAVE_Y = 18
+DAVE_W = 9
+DAVE_H = 7
+DAVE_WHITE = 1
+DAVE_AZURE = 14
 
 
 class Logo:
@@ -75,15 +84,20 @@ def blit(target_chars: bytearray, target_l1: bytearray, target_l2: bytearray, lo
         target_l2[dst_cell] = logo.l2_value(cell_index, tile_index)
 
 
-def fill_l2_rect(target_l2: bytearray, x0: int, y0: int, width: int, height: int, value: int) -> None:
-    for dy in range(height):
-        row = y0 + dy
-        if not (0 <= row < SCREEN_H):
-            continue
-        for dx in range(width):
-            col = x0 + dx
-            if 0 <= col < SCREEN_W:
-                target_l2[row * SCREEN_W + col] = value
+def remap_dave_colors(target_l1: bytearray, target_l2: bytearray) -> None:
+    source = Image.open(DAVE_PNG).convert("RGB")
+    resized = source.resize((DAVE_W, DAVE_H), Image.LANCZOS)
+    for cy in range(DAVE_H):
+        for cx in range(DAVE_W):
+            r, g, b = resized.getpixel((cx, cy))
+            dst_cell = (DAVE_Y + cy) * SCREEN_W + (DAVE_X + cx)
+            if r + g + b < 24:
+                continue
+            if b > r + 30 and b > g + 10:
+                target_l1[dst_cell] = DAVE_AZURE
+            else:
+                target_l1[dst_cell] = DAVE_WHITE
+            target_l2[dst_cell] = 0
 
 
 def main() -> None:
@@ -95,8 +109,8 @@ def main() -> None:
     target_l1 = bytearray(l1_path.read_bytes())
     target_l2 = bytearray(l2_path.read_bytes())
 
-    fill_l2_rect(target_l2, 1, 18, 9, 7, DAVE_BG_COLOR)
     blit(target_chars, target_l1, target_l2, Logo("Dave's Retro Forge_mini", 9, 7, fallback_l1=1, fallback_l2=14), 1, 18)
+    remap_dave_colors(target_l1, target_l2)
     blit(target_chars, target_l1, target_l2, Logo("Ocean_mini", 12, 4), 14, 21)
     blit(target_chars, target_l1, target_l2, Logo("Pakito retro game dev_mini", 12, 3), 27, 22)
 
