@@ -811,7 +811,7 @@ scroll_step:
         dec final_scroll_hold
         bne sst_done
         jsr show_centered_final_title
-        lda #150
+        lda #100
         sta final_hold
         rts
 ss_no_prehold:
@@ -1183,6 +1183,10 @@ gs_go:
         jsr uninstall_nmi
         jsr set_text_mode
         cli
+        jmp gs_hang
+
+gs_hang:
+        jmp gs_hang
 ; ===========================================================================
 ; Data
 ; ===========================================================================
