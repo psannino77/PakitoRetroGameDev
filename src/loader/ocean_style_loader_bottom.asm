@@ -1148,9 +1148,9 @@ gs_wait_game:
         lda game_hold_lo
         ora game_hold_hi
         bne gs_hold_tick
-        lda #<500
+        lda #<650
         sta game_hold_lo
-        lda #>500
+        lda #>650
         sta game_hold_hi
 gs_hold_tick:
         lda ZP_FRAME_LO
