@@ -1183,16 +1183,28 @@ gs_go:
         jsr uninstall_nmi
         jsr set_text_mode
         cli
-        jmp gs_hang
-
-gs_hang:
-        jmp gs_hang
+        ; --- Final placeholder: clear screen and show "GAME" ---
+        lda #$00
+        sta VIC_BORDER
+        sta VIC_BG
+        jsr clear_screen
+        ldx #0
+gs_p:   lda txt_game,x
+        beq gs_d
+        sta SCREEN + STRIP_ROW*40 + 18, x
+        lda #$01
+        sta COLRAM + STRIP_ROW*40 + 18, x
+        inx
+        bne gs_p
+gs_d:
+gs_h:   jmp gs_h
 ; ===========================================================================
 ; Data
 ; ===========================================================================
 
 ; "PRESS FIRE OR SPACE" in screen codes (uppercase charset).
 txt_press:    .byte 16,18,5,19,5,32,6,9,18,5,32,15,18,32,19,16,1,3,5,0
+txt_game:     .byte 7,1,13,5,0          ; "GAME"
 
 band_palette:
         .byte LOADER_BAND_COLOR_A, LOADER_BAND_COLOR_B
