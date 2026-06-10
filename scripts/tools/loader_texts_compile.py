@@ -163,16 +163,23 @@ def main() -> None:
         assert len(row) == ROW_WIDTH
         blob.extend(row)
 
-    # Soft-scroll source: titles[1:] joined with a separator, looped.
-    # If only one entry exists, fall back to that entry alone.
+    # Soft-scroll source: titles[1:-1] joined with a separator. The first
+    # entry is centered at startup (and disappears before scroll begins);
+    # the last entry is centered after the scroll finishes.
     SEP = "   *   "
-    scroll_titles = entries[1:] if len(entries) > 1 else entries
+    if len(entries) >= 3:
+        scroll_titles = entries[1:-1]
+    elif len(entries) == 2:
+        scroll_titles = entries[1:]
+    else:
+        scroll_titles = entries
     scroll_str = SEP.join(scroll_titles)
     # Trailing gap so that loop wrap is visually clean.
     scroll_str = scroll_str + SEP
     scroll_blob = to_screen_codes(scroll_str)
     if len(scroll_blob) > 0xFFFF:
         die("scroll text too long")
+    scroll_arm_shift = len(scroll_blob) + ROW_WIDTH
 
     os.makedirs(outdir, exist_ok=True)
     bin_path = os.path.join(outdir, "loader_texts.bin")
@@ -180,16 +187,20 @@ def main() -> None:
     scroll_path = os.path.join(outdir, "loader_scroll.bin")
     first_center_path = os.path.join(outdir, "loader_first_center.bin")
     right_center_path = os.path.join(outdir, "loader_right_center.bin")
+    final_center_path = os.path.join(outdir, "loader_final_center.bin")
     with open(bin_path, "wb") as f:
         f.write(blob)
     with open(scroll_path, "wb") as f:
         f.write(scroll_blob)
     first_center = compose_centered(entries[0])
     right_center = compose_centered(cfg["RIGHT"])
+    final_center = compose_centered(entries[-1])
     with open(first_center_path, "wb") as f:
         f.write(first_center)
     with open(right_center_path, "wb") as f:
         f.write(right_center)
+    with open(final_center_path, "wb") as f:
+        f.write(final_center)
 
     rel_bin = os.path.relpath(bin_path, start=os.path.dirname(inc_path)) \
         if os.path.dirname(inc_path) else bin_path
@@ -207,8 +218,10 @@ def main() -> None:
             f"LOADER_BAND_COLOR_B     = {col_b}\n"
             f"LOADER_BAND_HEIGHT      = {bh}\n"
             f"LOADER_SCROLL_LEN       = {len(scroll_blob)}\n"
+            f"LOADER_SPLASH_ARM_SHIFT = {scroll_arm_shift}\n"
             f"LOADER_FIRST_CENTER_LEN = {len(first_center)}\n"
             f"LOADER_RIGHT_CENTER_LEN = {len(right_center)}\n"
+            f"LOADER_FINAL_CENTER_LEN = {len(final_center)}\n"
         )
 
     print(f"loader_texts_compile: {len(entries)} entries, "

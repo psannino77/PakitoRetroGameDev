@@ -81,7 +81,7 @@ ZP_STRIP_ON     = $0A                   ; non-zero once strip is visible
 ZP_PROGRESS     = $0B                   ; advisory progress (0..100)
 ZP_SCROLL_ON    = $0F                   ; non-zero once scroll mode active
 ZP_FX           = $10                   ; soft-scroll fine X (0..7)
-ZP_SRCP         = $11                   ; scroll source ptr (lo/hi)
+ZP_SRCP         = $11                   ; scroll source ptr (lo/hi)  uses $11/$12
 ZP_IRQSTATE     = $13                   ; 0=top split, 1=bottom split
 ZP_SPLASH_PENDING = $14                 ; init bitmap reveal in main loop
 ZP_SPLASH_ON    = $15                   ; non-zero while splash mode is live
@@ -555,6 +555,11 @@ ss_t:   dex
         sta SCREEN + SEP_BOT_ROW*40, x
         bne ss_t
         ldx #40
+        lda #$20                        ; clear strip text row with spaces
+ss_tx:  dex
+        sta SCREEN + STRIP_ROW*40, x
+        bne ss_tx
+        ldx #40
         lda #SEP_COL
 ss_c:   dex
         sta COLRAM + SEP_TOP_ROW*40, x
@@ -586,6 +591,13 @@ show_centered_first_title:
         lda #<loader_first_center
         sta ZP_SRC
         lda #>loader_first_center
+        sta ZP_SRC+1
+        jmp show_buffer_row
+
+show_centered_final_title:
+        lda #<loader_final_center
+        sta ZP_SRC
+        lda #>loader_final_center
         sta ZP_SRC+1
         jmp show_buffer_row
 
@@ -771,16 +783,13 @@ nmi_rti:
 ; so the visual effect is restricted to the strip text.
 ; ===========================================================================
 
-; scroll_init: enter scroll mode. Clear the text row to spaces (so the
-; static OCEAN ... NOW LOADING entry disappears) and arm scroll state.
+; scroll_init: enter scroll mode and arm scroll state. The current strip
+; text stays visible and keeps scrolling until the full scroll pass ends.
 scroll_init:
-        ldx #40
-        lda #$20
-si_l:   dex
-        sta SCREEN + STRIP_ROW*40, x
-        bne si_l
         lda #7
         sta ZP_FX
+        lda #0
+        sta final_hold
         lda #<scroll_text
         sta ZP_SRCP
         lda #>scroll_text
@@ -792,9 +801,19 @@ si_l:   dex
 ; scroll_step: called every frame in scroll mode.
 ;   * Decrement fine X (0..7); when it wraps, shift strip row left by one
 ;     character and load the next char from scroll_text into the rightmost
-;     visible column. Wrap source pointer at scroll_text+LOADER_SCROLL_LEN.
-;   * Always rewrite VIC_CTRL2 with the current fine value.
+;     visible column. When the source reaches the end of the scroll text,
+;     show the final centered prompt and hold for `final_hold` frames
+;     before arming the splash reveal.
 scroll_step:
+        lda final_hold
+        beq ss_no_hold
+        dec final_hold
+        bne sst_done
+        ; Hold elapsed: arm splash reveal in main loop.
+        lda #1
+        sta ZP_SPLASH_PENDING
+        rts
+ss_no_hold:
         lda ZP_FX
         sec
         sbc #2                          ; speed: 2 px / frame
@@ -818,35 +837,29 @@ ss_sh:  lda SCREEN + STRIP_ROW*40 + 1, x
         ldy #0
         lda (ZP_SRCP),y
         sta SCREEN + STRIP_ROW*40 + (40 - STRIP_PAD)
-        ; --- advance source pointer with wrap ---
+        ; --- advance source pointer ---
         inc ZP_SRCP
-        bne ss_chk
+        bne ss_chk_end
         inc ZP_SRCP+1
-ss_chk:
+ss_chk_end:
+        ; --- end-of-scroll source check: one full pass ---
         sec
         lda ZP_SRCP
         sbc #<(scroll_text + LOADER_SCROLL_LEN)
         lda ZP_SRCP+1
         sbc #>(scroll_text + LOADER_SCROLL_LEN)
         bcc sst_done
-        ; --- end-of-text reached: scroll has played one full pass. Wrap the
-        ; source ptr back to the start (so the existing soft-scroll engine
-        ; keeps shifting cleanly until the splash actually takes over) and
-        ; arm the splash. Subsequent passes will not re-arm because
-        ; ZP_SCROLL_ON gets cleared by the IRQ as soon as it sees the
-        ; pending flag and the irq dispatcher stops calling scroll_step.
-        lda #<scroll_text
-        sta ZP_SRCP
-        lda #>scroll_text
-        sta ZP_SRCP+1
-        lda ZP_SPLASH_PENDING
-        bne sst_done
-        lda ZP_SPLASH_ON
-        bne sst_done
-        lda #1
-        sta ZP_SPLASH_PENDING
+        ; End of scroll text reached: stop scrolling, lock fine-X to 0,
+        ; show the final centered prompt, then hold ~3 s before splash.
+        lda #0
+        sta ZP_FX
+        jsr show_centered_final_title
+        lda #150
+        sta final_hold
 sst_done:
         rts
+
+final_hold      .byte 0
 
 done_flag       .byte 0
 
@@ -916,9 +929,6 @@ sc_scroll:
         lda ZP_SCROLL_ON
         beq sc_pre
         jsr scroll_step
-        ; scroll_step arms ZP_SPLASH_PENDING when the text has scrolled
-        ; one full pass. Clear ZP_SCROLL_ON in that case so the IRQ stops
-        ; feeding the strip text row from here on.
         lda ZP_SPLASH_PENDING
         beq sc_scroll_skip
         lda #0
@@ -973,9 +983,16 @@ strip_show_first:
         sta ZP_CYC_HI
         jmp strip_skip
 strip_start_scroll:
-        ; Splash is no longer armed by a fixed frame countdown. The
-        ; scroller itself sets ZP_SPLASH_PENDING when it has shown the
-        ; entire scroll text once (see scroll_step / ss_chk).
+        ; Clear the strip text row so the centered first title disappears
+        ; before the scroll begins (otherwise it would be shifted left).
+        ldx #40
+        lda #$20
+strip_clr:
+        dex
+        sta SCREEN + STRIP_ROW*40, x
+        bne strip_clr
+        ; Start the scrolling text phase; the final centered line is shown
+        ; later when the loader finishes.
         jsr scroll_init
         lda #2
         sta ZP_ENTRY
@@ -1127,21 +1144,7 @@ gs_prompt_ready:
         lda skip_prompt_flag
         bne gs_go
 
-        ; Overwrite the strip with the prompt; keep IRQ + music alive.
-        ldy #39
-gs_clr: lda #$20
-        sta SCREEN + STRIP_ROW*40, y
-        lda #SEP_COL                    ; yellow, like the strip frame
-        sta COLRAM + STRIP_ROW*40, y
-        dey
-        bpl gs_clr
-
-        ldx #0
-gs_msg: lda txt_press,x
-        beq gs_wait
-        sta SCREEN + STRIP_ROW*40 + 10, x
-        inx
-        bne gs_msg
+        jsr show_centered_final_title
 
 gs_wait:
         jsr poll_any_input
@@ -1210,6 +1213,9 @@ loader_first_center:
 
 loader_right_center:
         .binary "build/loader/loader_right_center.bin"
+
+loader_final_center:
+        .binary "build/loader/loader_final_center.bin"
 
 ; Strip text table: LOADER_ENTRIES_COUNT * 40 screen-codes.
 loader_entries:
