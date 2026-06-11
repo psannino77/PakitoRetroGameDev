@@ -58,6 +58,8 @@ SPLASH_COLS     = 40
 ; tape ends (LOADER_TOTAL_FRAMES = 9000 frames = 180 s), giving the
 ; finished image a quiet hold before auto-transitioning to GAME.
 SPLASH_STEP_FRAMES = 3
+PREGAME_BLACK_FRAMES = 750
+PREGAME_BLACK_START = LOADER_TOTAL_FRAMES - PREGAME_BLACK_FRAMES
 
 SEP_CHAR        = $40                   ; horizontal line in upper charset
 SEP_COL         = $07                   ; yellow
@@ -93,6 +95,7 @@ ZP_SPLASH_SCR   = $1C                   ; splash screen RAM ptr (lo/hi)
 ZP_SPLASH_L1SRC = $1E                   ; linear src ptr into splash_l1 (+1/tile)
 ZP_SPLASH_COLPTR = $20                  ; color RAM ptr (lo/hi)
 ZP_INPUT_ARMED  = $22                   ; fresh-press gate for skip input
+ZP_PREGAME_BLACK = $23                  ; blackout phase before final GAME screen
 ZP_SRC          = $FB                   ; copy ptr (lo/hi)
 ZP_DST          = $FD                   ; copy ptr (lo/hi)
 
@@ -177,6 +180,7 @@ start:
         sta ZP_SPLASH_COL
         sta ZP_SPLASH_WAIT
         sta ZP_INPUT_ARMED
+        sta ZP_PREGAME_BLACK
         lda #0
         sta ZP_FX
         lda #<scroll_text
@@ -762,6 +766,8 @@ uninstall_nmi:
 
 nmi_handler:
         pha
+        lda ZP_PREGAME_BLACK
+        bne nmi_blackout
         ; Music-driven bands: SID voice-3 oscillator output ($D41B) varies
         ; with the melody. Use bit 2 (mid frequency) as the toggle source so
         ; band thickness loosely follows the music.
@@ -769,6 +775,11 @@ nmi_handler:
         and #$05
         eor VIC_BORDER
         sta VIC_BORDER
+        jmp nmi_done
+nmi_blackout:
+        lda #0
+        sta VIC_BORDER
+nmi_done:
         lda $DD0D                       ; ack CIA2 NMI
         pla
         rti
@@ -1012,10 +1023,37 @@ strip_skip:
         ; --- Music play ---
         jsr music_play
 
+        ; --- Early blackout before the music ends ---
+        ; Fade the display to black a few seconds before the final handoff so
+        ; the end of the music feels intentional instead of cutting directly
+        ; from the picture to the game.
+        lda ZP_PREGAME_BLACK
+        bne done_check
+        lda ZP_FRAME_HI
+        cmp #>PREGAME_BLACK_START
+        bcc done_check
+        bne start_blackout
+        lda ZP_FRAME_LO
+        cmp #<PREGAME_BLACK_START
+        bcc done_check
+start_blackout:
+        lda #1
+        sta ZP_PREGAME_BLACK
+        lda #0
+        sta ZP_SPLASH_PENDING
+        sta ZP_SPLASH_ON
+        sta ZP_SCROLL_ON
+        jsr set_text_mode
+        jsr clear_screen
+        lda #$00
+        sta VIC_BORDER
+        sta VIC_BG
+
         ; --- Done check: auto-transition when music ends ---
         ; Once the frame counter reaches LOADER_TOTAL_FRAMES AND the splash
         ; reveal has finished (ZP_BARSCROLL >= SPLASH_ROWS), set done_flag so
         ; main_loop exits to game_stub automatically.
+done_check:
         lda ZP_FRAME_HI
         cmp #>LOADER_TOTAL_FRAMES
         bne irq_ack
@@ -1136,38 +1174,13 @@ skip_prompt_flag .byte 0
 game_hold_lo    .byte 0
 game_hold_hi    .byte 0
 game_frame      .byte 0
+game_black_hold .byte 0
 
 game_stub:
         lda done_flag
-        bne gs_wait_game
+        bne gs_go
         lda #1
         sta skip_prompt_flag
-        jmp gs_go
-
-gs_wait_game:
-        lda game_hold_lo
-        ora game_hold_hi
-        bne gs_hold_tick
-        lda #<650
-        sta game_hold_lo
-        lda #>650
-        sta game_hold_hi
-gs_hold_tick:
-        lda ZP_FRAME_LO
-        sta game_frame
-gs_wait_frame:
-        lda ZP_FRAME_LO
-        cmp game_frame
-        beq gs_wait_frame
-        sta game_frame
-        lda game_hold_lo
-        bne gs_dec_lo
-        dec game_hold_hi
-gs_dec_lo:
-        dec game_hold_lo
-        lda game_hold_lo
-        ora game_hold_hi
-        bne gs_wait_game
         jmp gs_go
 
 gs_go:
@@ -1177,6 +1190,7 @@ gs_go:
         sta game_hold_hi
         sta ZP_SPLASH_ON
         sta ZP_SCROLL_ON
+        sta ZP_PREGAME_BLACK
         sei
         jsr music_stop
         jsr uninstall_irq
