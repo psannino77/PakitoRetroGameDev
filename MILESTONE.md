@@ -1,87 +1,47 @@
-# Milestone 1 — C64 Intro Splash Screen & Pre-Game Loader
+# Milestone 1 - C64 Intro Splash Screen and Pre-Game Loader
 
 ## Target Platform
 **Commodore 64** (PAL, 6502, VIC-II).
 
 ## Goal
-Deliver a reusable intro splash screen (studio/author identity) and a generic
-pre-game loader, written in 6502 assembly, to be displayed before each game
-in this repository.
+Deliver a reusable Ocean-style pre-game loader and full-screen splash reveal
+in 6502 assembly, shown before each game in this repository.
 
-## Scope
-- Static splash screen shown at boot.
-- Loader screen with progress feedback shown before any game starts.
-- Both routines must be reusable across multiple C64 games.
+## Status: delivered (baseline)
 
-## Deliverables
-- Splash screen bitmap/charset asset(s) + display routine (ASM).
-- Loader screen asset(s) + display routine with progress API (ASM).
-- Build pipeline (e.g. KickAssembler / ACME / cc65 + exomizer) producing a
-  runnable `.prg` / `.d64`.
-- Asset conversion scripts (PNG/Koala -> C64 binary).
-- Minimal English documentation describing integration and customization.
+Normative behavior is maintained in OpenSpec main specs:
 
-## Acceptance Criteria
-- Splash displays for a configurable number of frames, then transitions to the loader.
-- Loader shows progress (bar/percentage/animation) and completes cleanly.
-- A demo `.prg` runs on VICE (and ideally on real hardware) showing:
-  splash -> loader -> stub game.
-- No hard-coded magic numbers without a named constant; timings/colors configurable.
+| Spec | Path |
+|------|------|
+| Loader runtime | [openspec/specs/ocean-loader/spec.md](openspec/specs/ocean-loader/spec.md) |
+| Splash assets | [openspec/specs/splash-assets/spec.md](openspec/specs/splash-assets/spec.md) |
+| Build / VICE | [openspec/specs/build-pipeline/spec.md](openspec/specs/build-pipeline/spec.md) |
 
----
+## Delivered
 
-## TODO
+- [x] Assembler toolchain: **64tass**
+- [x] Ocean-style loader with border bands + centered strip + soft-scroll
+- [x] TokiFinal full-screen multicolor splash (tile-by-tile reveal)
+- [x] Config file assets/loader/loader_texts.txt for titles/timings
+- [x] Optional SID extract + play (local HVSC file)
+- [x] Build to build/OCNTOKI.PRG / .D64
+- [x] VICE launcher scripts/run_vice.sh
+- [x] OpenSpec project setup + baseline specs
 
-### Planning & Setup
-- [ ] Decide assembler toolchain (KickAssembler / ACME / cc65).
-- [ ] Decide display mode for splash: hires bitmap, multicolor bitmap, or charset.
-- [ ] Decide display mode for loader (likely charset + sprite for the bar).
-- [ ] Add base folder layout: `src/`, `assets/`, `build/`, `docs/`, `tools/`, `examples/`.
-- [ ] Add `README.md` (English) with project overview and build instructions.
-- [ ] Add a `Makefile` (or equivalent) to build splash + loader + demo.
+## Acceptance (met)
 
-### Assets - Splash
-- [ ] Drop original mockup in `assets/splash/mockup/`.
-- [ ] Convert mockup to C64 format (Koala `.kla` / hires `.bin` / charset).
-- [ ] Generate color RAM and screen RAM dumps.
-- [ ] Optional: crunch with exomizer.
+- Demo PRG runs on VICE: silence -> strip -> scroll -> splash -> game stub.
+- Auto hand-off at LOADER_TOTAL_FRAMES after splash completes.
+- Input skip gated while splash reveal is active.
+- Timings/colors/texts driven by named constants / config file.
 
-### Assets - Loader
-- [ ] Drop original mockup in `assets/loader/mockup/`.
-- [ ] Convert mockup to C64 format.
-- [ ] Design progress bar (sprite-based or charset-based).
-- [ ] Define color scheme for "empty" vs "filled" bar.
+## Follow-ups (out of this milestone)
 
-### Code - Splash (ASM)
-- [ ] Routine `splash_init` - set VIC-II mode, copy bitmap/screen/color, set border/bg.
-- [ ] Routine `splash_run` - wait N frames or until key/joystick press.
-- [ ] Routine `splash_done` - restore VIC-II to text/charset mode.
-- [ ] Optional: fade-in via color cycling.
+- [ ] Real tape/disk load progress hooked to loader_set_progress
+- [ ] Integration into a full game binary (beyond game_stub)
+- [ ] Optional fade / concurrent raster split scroll+bitmap (if desired)
+- [ ] Hardware verification on real C64 / SD2IEC
 
-### Code - Loader (ASM)
-- [ ] Routine `loader_init` - display loader screen.
-- [ ] API `loader_set_progress` (A = 0..100 or 0..255) - update bar.
-- [ ] API `loader_set_message` (XY = ptr to PETSCII string) - update label line.
-- [ ] Routine `loader_done` - clear screen and hand off to game.
-- [ ] Hook progress to a sample loader task (fake delay or real file load).
+## Tag
 
-### Integration
-- [ ] Single entry point (e.g. `intro_run`) chaining splash -> loader.
-- [ ] Document the calling convention (registers / ZP usage) for game code.
-- [ ] Build a minimal demo game that calls `intro_run` then displays "GAME".
-
-### Tooling
-- [ ] PNG -> C64 bitmap converter script (Python) in `tools/`.
-- [ ] Build script producing `.prg` and `.d64`.
-- [ ] VICE launch helper (`make run`).
-
-### Documentation (English)
-- [ ] `docs/splash.md` - splash usage, memory layout, customization.
-- [ ] `docs/loader.md` - loader usage, progress API, memory layout.
-- [ ] `docs/integration.md` - how to plug intro into a new C64 game.
-- [ ] `docs/build.md` - toolchain setup and build commands.
-
-### Release
-- [ ] Tag milestone `m1-intro-loader`.
-- [ ] Update changelog.
-- [ ] Verify on real hardware (or at least VICE + warp off).
+Suggested release tag once docs are frozen: m1-intro-loader.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Ocean-style loader PRG with 64tass.
+# Build the combined Toki splash / Ocean-style loader PRG with 64tass.
 #   * Compiles the rotating-strip text table (assets/loader/loader_texts.txt)
 #     into build/loader/loader_texts.{bin,inc}.
 #   * Optionally extracts a SID into build/sid/ if a local file is present.
@@ -50,11 +50,11 @@ fi
 # Output name kept short, uppercase, ASCII-only so it loads cleanly from a
 # C64 BASIC LOAD"NAME",8 prompt (PETSCII has no '_' on the keyboard, and disk
 # filenames are limited to 16 chars).
-OUT_PRG="$ROOT/build/OCNLOAD.PRG"
-# Clean up any stale alias from older builds.
-rm -f "$ROOT/build/ocean_loader.prg"
+OUT_PRG="$ROOT/build/OCNTOKI.PRG"
+# Clean up stale aliases from older builds.
+rm -f "$ROOT/build/ocean_loader.prg" "$ROOT/build"/OCN*.PRG "$ROOT/build"/OCN*.D64
 64tass -a -I "$ROOT" -o "$OUT_PRG" \
-    "$ROOT/src/loader/ocean_style_loader.asm"
+    "$ROOT/src/loader/ocean_style_loader_bottom.asm"
 
 echo "[loader] built: $OUT_PRG ($(wc -c <"$OUT_PRG") bytes)"
 
@@ -63,11 +63,11 @@ echo "[loader] built: $OUT_PRG ($(wc -c <"$OUT_PRG") bytes)"
 # (no fsdevice needed) and lets the PRG run on real hardware (1541, SD2IEC,
 # 1541 Ultimate, ...). The first program on a disk autostarts via
 # LOAD"*",8,1 + RUN, which is what VICE's autostart and SD2IEC FB do.
-OUT_D64="$ROOT/build/OCNLOAD.D64"
+OUT_D64="$ROOT/build/OCNTOKI.D64"
 if command -v c1541 >/dev/null 2>&1; then
     rm -f "$OUT_D64"
-    c1541 -format "pakito loader,01" d64 "$OUT_D64" >/dev/null
-    c1541 -attach "$OUT_D64" -write "$OUT_PRG" "ocnload" >/dev/null
+    c1541 -format "ocntoki,01" d64 "$OUT_D64" >/dev/null
+    c1541 -attach "$OUT_D64" -write "$OUT_PRG" "ocntoki" >/dev/null
     echo "[loader] packaged: $OUT_D64"
 else
     echo "[loader] c1541 not found - skipping .D64 packaging" >&2

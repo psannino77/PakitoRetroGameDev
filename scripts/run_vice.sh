@@ -3,7 +3,7 @@
 # touches (nor is touched by) your global ~/.config/vice/vicerc.
 #
 # Usage:
-#   ./scripts/run_vice.sh                   # autostarts build/OCNLOAD.PRG
+#   ./scripts/run_vice.sh                   # autostarts build/OCNTOKI.PRG
 #   ./scripts/run_vice.sh path/to/file.prg  # autostarts a specific PRG
 #   ./scripts/run_vice.sh --help            # show help
 #
@@ -22,7 +22,7 @@ print_help() {
 Pakito Retro Game Dev - VICE launcher (isolated config)
 
 Usage:
-  $0                 Run with build/OCNLOAD.PRG (the loader)
+    $0                 Run with build/OCNTOKI.PRG (the loader)
   $0 <file.prg>      Run with a specific PRG (path relative to project root
                      or absolute)
   $0 --help          Show this help
@@ -36,7 +36,7 @@ case "${1:-}" in
     -h|--help) print_help; exit 0 ;;
 esac
 
-PRG="${1:-build/OCNLOAD.PRG}"
+PRG="${1:-build/OCNTOKI.PRG}"
 if [[ "$PRG" != /* ]]; then
     PRG="$ROOT/$PRG"
 fi

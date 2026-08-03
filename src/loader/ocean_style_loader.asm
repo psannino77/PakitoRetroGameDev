@@ -146,6 +146,7 @@ start:
         sta ZP_PROGRESS
         sta ZP_SCROLL_ON
         sta done_flag
+        sta skip_prompt_flag
         lda #0
         sta ZP_FX
         lda #<scroll_text
@@ -164,12 +165,14 @@ start:
         cli
 
 main_loop:
+        jsr poll_any_input
+        bne main_skip_intro
         lda done_flag
         beq main_loop
+main_skip_intro:
 
-        ; Music + raster IRQ keep running while we wait for FIRE/SPACE
-        ; inside game_stub. game_stub will call uninstall_irq + music_stop
-        ; itself once the user acknowledges.
+        ; Music + raster IRQ keep running while game_stub either shows the
+        ; final prompt or immediately hands off after an early skip input.
         jmp game_stub
 
 ; ===========================================================================
@@ -184,6 +187,35 @@ loader_set_progress:
         lda #100
 lsp_ok:
         sta ZP_PROGRESS
+        rts
+
+; poll_any_input:
+;   A = 1 if any keyboard key is pressed, or if any joystick direction/fire
+;   is active on port 2. The keyboard probe also sees joystick port 1 lines,
+;   so either joystick can be used to skip/continue.
+poll_any_input:
+        lda CIA1_PRA
+        sta ZP_TMP2
+        and #$1F
+        cmp #$1F
+        bne pai_pressed
+
+        lda #$00
+        sta CIA1_PRA
+        lda CIA1_PRB
+        cmp #$FF
+        bne pai_pressed_restore
+
+        lda ZP_TMP2
+        sta CIA1_PRA
+        lda #$00
+        rts
+
+pai_pressed_restore:
+        lda ZP_TMP2
+        sta CIA1_PRA
+pai_pressed:
+        lda #$01
         rts
 
 ; ===========================================================================
@@ -699,19 +731,27 @@ ss_done:
 ; Game stub
 ;
 ; When the loader timer elapses, we DON'T jump straight to the game: instead
-; we replace the rotating strip with "PRESS FIRE OR SPACE" and wait for the
+; we replace the rotating strip with "PRESS FIRE OR ANY KEY" and wait for the
 ; user to acknowledge (so the user can actually read the credits and enjoy
-; the music). Music + raster bars keep running until the key/fire is pressed.
-;
-; Input:
-;   - SPACE on keyboard: scan keyboard matrix row 7, column 4 (CIA1).
-;   - FIRE on joystick port 2: bit 4 of $DC00 (active low).
+; the music). Music + raster bars keep running until any key or joystick
+; input is pressed.
 ; ===========================================================================
 
 CIA1_PRA        = $DC00      ; joystick port 2 + keyboard rows
 CIA1_PRB        = $DC01      ; keyboard columns
 
+skip_prompt_flag .byte 0
+
 game_stub:
+        lda done_flag
+        bne gs_show_prompt
+        lda #1
+        sta skip_prompt_flag
+
+gs_show_prompt:
+        lda skip_prompt_flag
+        bne gs_go
+
         ; Overwrite the strip with the prompt; keep IRQ + music alive.
         ldy #39
 gs_clr: lda #$20
@@ -729,23 +769,13 @@ gs_msg: lda txt_press,x
         bne gs_msg
 
 gs_wait:
-        ; --- Joystick port 2: bit 4 of $DC00 = 0 when fire pressed ---
-        lda CIA1_PRA
-        and #$10
-        beq gs_go
-        ; --- Keyboard: SPACE = row 7, col 4 ---
-        ;   Drive only row 7 low ($7F = bit 7 = 0).
-        lda #$7F
-        sta CIA1_PRA
-        lda CIA1_PRB
-        and #$10                        ; column 4 (SPACE)
-        beq gs_go
-        ; restore "all rows driven" so default scanning still works
-        lda #$00
-        sta CIA1_PRA
+        jsr poll_any_input
+        bne gs_go
         jmp gs_wait
 
 gs_go:
+        lda #0
+        sta skip_prompt_flag
         sei
         jsr music_stop
         jsr uninstall_irq

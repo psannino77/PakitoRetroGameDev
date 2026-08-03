@@ -1,0 +1,66 @@
+schema: spec-driven
+
+# Shown to AI when creating OpenSpec artifacts.
+context: |
+  Project: PakitoRetroGameDev — Commodore 64 (PAL) retro game tooling.
+  Milestone 1: reusable Ocean-style pre-game loader + Toki splash reveal.
+
+  Tech stack:
+  - 6502 assembly (64tass syntax)
+  - Python 3 build helpers (scripts/tools/)
+  - bash build/run scripts
+  - VICE (x64sc) for testing via scripts/run_vice.sh
+  - OpenSpec for spec-driven changes
+
+  Canonical loader entrypoint (do not regress without an OpenSpec change):
+  - Source: src/loader/ocean_style_loader_bottom.asm
+  - Build:  ./scripts/build_loader.sh  → build/OCNTOKI.PRG + .D64
+  - Run:    ./scripts/run_vice.sh
+  - Legacy plain strip (no splash): src/loader/ocean_style_loader.asm
+    (kept for reference; not built by default)
+
+  Loader runtime flow (PAL 50 Hz):
+  1. Black screen + music start (optional SID from assets/loader/sid/)
+  2. INITIAL_SILENCE frames
+  3. Centered strip (STRIP_ROW=12): "NOW LOADING" then first title
+  4. Soft-scroll of intro text for one full pass
+  5. Full-screen multicolor bitmap splash reveal (tile-by-tile, L→R, row-by-row)
+  6. Hold finished image until LOADER_TOTAL_FRAMES, then auto game_stub
+     (input also skips after splash is complete; blocked while splash active)
+
+  Splash assets (linear TokiFinal 40×25, no map indirection at runtime):
+  - assets/splash/Toki Splash/TokiFinal - Chars.bin          (8000 B)
+  - assets/splash/Toki Splash/TokiFinal - CharAttribs_L1.bin (1000 B, color RAM)
+  - assets/splash/Toki Splash/TokiFinal - CharAttribs_L2.bin (1000 B, screen RAM)
+  Optional compose from logos: scripts/tools/compose_toki_splash.py
+  + assets/logos/bin/*_mini*
+
+  Config-driven strip texts/timings:
+  - assets/loader/loader_texts.txt
+  - scripts/tools/loader_texts_compile.py → build/loader/*
+
+  Conventions:
+  - Never commit third-party SID bytes under a redistributable path without
+    checking license; *.sid is gitignored. Local HVSC copies under
+    assets/loader/sid/ are used at build time only.
+  - Prefer named constants over magic numbers in ASM.
+  - English for docs and OpenSpec artifacts; Italian OK in chat.
+  - Conventional, descriptive commit messages.
+  - Do not widen scope into game logic beyond loader/splash milestone work
+    unless the user asks.
+
+rules:
+  proposal:
+    - Keep proposals under ~400 words
+    - Always include a Non-goals bullet list inside What Changes or Impact
+    - Name capabilities in kebab-case matching future specs/<name>/
+  specs:
+    - Use SHALL/MUST normative language
+    - Every requirement needs at least one #### Scenario with WHEN/THEN
+    - Prefer PAL-frame timings and named constants over vague "a few seconds"
+  design:
+    - Call out VIC bank, bitmap vs text mode, and ZP pressure explicitly
+    - Note SID player ZP conflicts when touching interrupt/zero-page layout
+  tasks:
+    - Chunk tasks to ~20 minutes of focused work
+    - Include an explicit rebuild + VICE visual check when ASM changes

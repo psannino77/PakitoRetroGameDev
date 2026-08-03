@@ -41,3 +41,6 @@ assets/loader/ocean robocop demo/
 /capture_screenshots.py
 /diag_loader.py
 /monitor_script_1.py
+
+# Local temp dumps / screenshots
+tmp/
