@@ -22,4 +22,4 @@
 
 - [x] 4.1 `openspec validate --all` passes
 - [x] 4.2 `./scripts/build_loader.sh` succeeds
-- [ ] 4.3 Commit cleanup + OpenSpec tree and push `main`
+- [x] 4.3 Commit cleanup + OpenSpec tree and push `main`
